@@ -1,0 +1,98 @@
+#+TITLE: Using Org Babel to follow experiments
+
+The goal of this repo is to give a fully reprodictible environment to follow my workflow.
+
+* Install necessary fonts
+
+For our base configuration, I use two fonts:
+ - JetBrain Mono :: for fixed pitch text
+ - Iosevka Aile :: for variable pitch text
+
+I also use Nerd Font in the configuration so the extentions should be installed:
+
+** On MacOs
+
+#+begin_src sh
+  brew install --cask font-iosevka-aile
+  brew install --cask font-jetbrains-mono
+  brew install --cask font-jetbrains-mono-nerd-font
+#+end_src
+
+** On Ubuntu
+
+#+begin_src sh
+  # Iosevka
+  sudo apt-get install fonts-iosevka
+
+  # Jetbrains-mono (not sure if needed)
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/install_manual.sh)"
+
+  # Jetbrains Nerd font
+  mkdir -p ~/.local/share/fonts
+  cd ~/.local/share/fonts
+  curl -OL https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.tar.xz  
+  tar -xf JetBrainsMono.tar.xz
+#+end_src
+
+* Install emacs
+
+To run the Org mode file with the exemple you need to have emacs installed.
+
+** On MacOs
+
+#+begin_src sh
+  brew install --cask emacs
+#+end_src
+
+** On Ubuntu
+
+#+begin_src sh
+  sudo apt-get install emacs
+#+end_src
+
+* Setup emacs
+
+To run a simple but bateries included emacs, you need to launch emacs using the configuration in this repo's ~emacs.d~.
+
+#+begin_src sh
+  cd $THIS_DIRECTORY
+  emacs --init-directory emacs.d
+#+end_src
+
+You should let Emacs run and install the necessary modules.
+Some warning will be shown but once it finish you can close it and rerun it with the same command and warnings should not be there.
+Your emacs will look something like this:
+
+[IMAGE OF EMACS]
+
+If you still have warnings after relaunching emacs or it does not look like the screen shot go to [[id:1D7E522F-61EE-4B5D-9D4C-05EE6F10A173][Troubleshoot]] section.
+
+* Optional: Switch [Caps Lock] and [CTRL]
+
+In Emacs, most shortcuts uses the ~[CTRL]~ key. Unfortunatly, its position is not ideal in modern computers so to reduce fingers stress you can switch the ~[CTRL]~ and ~[Caps Lock]~ system wise.
+
+** On Mac Os
+
+#+begin_src
+  - Click on Apple Menu
+  - Click System Preferences
+  - Click Keyboard
+  - In the Keyboard tab, click the Modifier Keys button in the lower right of the control panel
+  - Set your Caps Lock to Control and Control to Caps Lock
+#+end_src
+
+** On Ubuntu
+
+#+begin_src 
+  - Install gnome-tweak-tool and open it
+  - Click Keyboard & Mouse
+  - Click Keyboard
+  - Click Additional Layout Options
+  - Set Ctrl position to Swap ctrl and Caps Lock
+#+end_src
+
+* Troubleshoot
+:PROPERTIES:
+:ID:       1D7E522F-61EE-4B5D-9D4C-05EE6F10A173
+:END:
+

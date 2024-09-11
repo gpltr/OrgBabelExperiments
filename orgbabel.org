@@ -1,0 +1,715 @@
+#+TITLE: How to use Org mode to follow experiments
+#+PROPERTY: header-args:sh :dir /tmp/experiment_org
+
+* Goal
+
+In my work, I need to launch variations of the same two or three command lines. It can be quite challenging to keep track of which commands I've run or which command I should run when another is done. I will document here how I use Org mode and Org Babel to organize this work.
+
+* Setting
+
+Let's say you are doing a benchmark of models on a supercomputer using Slurm. The sequence of commands could be:
+
+For each model:
+- Launch the training
+- Look at the results and select the iteration with the best validation metrics
+- Run an evaluation on your test set
+
+These commands are sequential in nature; you need to wait for the training to finish before looking at results, but you can launch many different training sessions at the same time.
+
+
+** Quick summary of Org Babel
+
+Org Babel is kind of a "universal" notebook. It lets you put code blocks anywhere in an Org document, and if your Emacs is correctly set up, you can run the code and view the results.
+
+To create a code block, you need to put your code between:
+
+#+begin_example
+  #+begin_src [LANGUAGE]
+    code...
+  #+end_src
+#+end_example
+
+To run the code block, you need to place your cursor in it and use ~[C-c C-c]~ (read as ~Ctrl-c Ctrl-c~), and the results should appear just below.
+
+You can do a lot with Org Babel, and you will learn some of its features in this document.
+Let's define the toy commands using Org Babel.
+
+(If you want to replicate this, follow the instructions from the "Setup" section before continuing.)
+
+** Launching the training
+
+The simple ~train.py~ script defined in the Setup section is called as:
+#+begin_src sh
+  python3 train.py -m $MODEL_TYPE -d $DATASET -e $EPOCH -o $OUTPUT
+#+end_src
+
+** Launching the evaluation
+
+The simple ~eval.py~ script defined in the Setup section is called as:
+#+begin_src sh
+  python3 eval.py -m $MODEL_TYPE -d $DATASET -e $EPOCH
+#+end_src
+
+* The Bronze age
+
+Let's say we have to run a benchmark on two types of models: ~model_A~, ~model_B~, both on ~dataset_A~.
+We first use only Org babel, copy and paste the commands and change the variables by hand.
+
+Watch also how you can use keywords [TODO | DONE] to track how far you are in your benchmark.
+For example, if you expand the Experiments section below, it is clear that Experiment A is done, but B is ongoing and needs to have its results reviewed.
+We can also use one liner to read the output of the training and having it in the document!
+
+** Experiments
+*** DONE Experiment A - ~model_A~
+**** DONE Training
+
+Pro tip: the ~:exports both~ and ~:eval no-export~ option means than when exporting to another type of file, the sh command and its results will be exported without reruning it.
+
+#+begin_src sh :exports both :eval no-export :results verbatim
+  python3 train.py -m "model_A" -d "dataset_B" -e 5 -o /tmp/experiment_org/model_A.txt
+#+end_src
+
+#+RESULTS:
+: Training Done ! (model_A, dataset_B, 5)
+
+**** DONE Choose evaluation epoch
+
+The following code reads the output of our training and prints the results
+
+Pro tip: when you are in a table, ~[M-x org-sort]~ will sort the row based on your choice.
+
+#+begin_src sh :exports both :eval no-export
+  cat /tmp/experiment_org/model_A.txt | awk -F' ' '
+      NR==1 {print "epoch, metric_1, metric_2"} 	
+            {print     $2        $5        $8}
+  '
+#+end_src
+
+#+RESULTS:
+| epoch |            metric_1 |           metric_2 |
+|     0 | 0.14922942050710397 |  5.292867440598993 |
+|     1 | 0.14418623130675406 |  7.061251998018506 |
+|     2 | -0.9088694762261723 | 4.5253386090646295 |
+|     3 | -0.5653074858174697 | 4.5861206693919225 |
+|     4 |  0.4071395063029456 |  6.964283658334697 |
+
+**** DONE Eval
+
+Pro tip: here you can see the ~:results verbatim~ option, without it Org will try to put the output into a table (as above).
+
+#+begin_src sh :exports both :eval no-export :results verbatim
+  python3 eval.py -m "model_A" -d "dataset_A" -e 3
+#+end_src
+
+#+RESULTS:
+: Epoch 3, metric_1 = 0.6, metric_2 = 6.0
+
+*** TODO Experiment B - ~model_B~
+***** DONE Training
+
+#+begin_src sh :exports both :eval no-export :results verbatim
+  python3 train.py -m "model_B" -d "dataset_A" -e 50 -o /tmp/experiment_org/model_B.txt
+#+end_src
+
+#+RESULTS:
+: Training Done ! (model_B, dataset_A, 50)
+
+***** TODO Choose evaluation epoch
+
+#+begin_src sh :exports both :eval no-export
+  cat /tmp/experiment_org/model_B.txt | awk -F' ' '
+      NR==1 {print "epoch, metric_1, metric_2"}
+            {print     $2        $5        $8}
+  '
+#+end_src
+
+***** TODO Eval
+
+#+begin_src sh :exports both :eval no-export :results raw
+  python3 train.py -m "model_B" -d "dataset_A" -e [TBD]
+#+end_src
+
+** Conclusion
+
+With Org babel you can easily track your commands, run them and put results or comment around them.
+Another key usage of Org mode is to export to other format, for example to plain text or to html. To do this just go the line ~Experiments~ and use ~[M-x org-export-dispatch]~.
+In the Org export menu, ~[C-s]~ to only export ~Experiments~ and then ~[t U]~ to export to text format for example.
+
+The drawbacks is that you need to copy paste the command for every new experiments and not trip over some variables that needed to be change!
+Let's see how to use ~:var~ to mitigate this problem.
+
+* The Silver Age
+
+The idea is to use the Org babel ~:var~ option as shown below.
+
+#+begin_src sh :export both :eval no-export :var NAME="Guillaume"
+  echo $NAME
+#+end_src
+
+#+RESULTS:
+: Guillaume
+
+As you see, the variable ~$NAME~ was changed to ~Guillaume~ when executing. To be more precise, Org babel adds lines above the command to define the ~$NAME~ variable. To see the expansion, put your cursor on the code block and do ~[M-x org-babel-expand-src-block]~ and you should see this (if you did not change the ~$NAME~ variable):
+
+#+begin_src sh :eval no-export
+  NAME='Guillaume'
+  echo $NAME
+#+end_src
+
+The other trick needed is the use of ~:header-args:~ in Org mode. You see, on each of our ~src~ blocks we defined the ~:export~ and ~:eval~ options. Org provides a way to avoid defining these options for every block: you can define defaults to your ~src~ options by using a ~properties~ drawer.
+The properties drawer set options to everything contained inside the section it takes the format:
+
+#+begin_example
+  ** Heading Title
+  :PROPERTIES:
+  :header-args:sh: :export both :eval no-export
+  :END:
+#+end_example
+
+I will not go into too much detail but by defining a ~:header-args:~ with our variable every following block will have the correct value. Be careful if you want the option to append and not replace, you need to use ~:header-args+:~
+
+** Experiments
+:PROPERTIES:
+:header-args:sh+: :export both :eval no-export
+:header-args+: :var DATASET="dataset_A"
+:header-args+: :var EPOCH=5
+:END:
+
+You might need to expand the ~:PROPERTIES:~ drawer to see the variables (use ~[TAB]~).
+Inside you will see that we define the ~:export~ and ~:eval~ variable but also two defaults ~:var~. One defining the ~DATASET~ and another the ~EPOCH~ which correspond to the number of training epochs.
+
+*** DONE Experiment A - ~model_A~
+:PROPERTIES:
+:header-args+: :var MODEL="model_A"
+:header-args+: :var OUTPUT="/tmp/experiment_org/model_A.txt"
+:END:
+
+**** DONE Training
+
+#+begin_src sh :results verbatim
+  python3 train.py -m $MODEL -d $DATASET -e $EPOCH -o $OUTPUT
+#+end_src
+
+#+RESULTS:
+: Training Done ! (model_A, dataset_A, 5)
+
+If you use ~[M-x org-babel-expand-src-block]~ on the previous ~src~ block, you will see:
+
+#+begin_src sh
+  DATASET='dataset_A'
+  EPOCH='5'
+  MODEL='model_A'
+  OUTPUT='/tmp/experiment_org/model_A.txt'
+  python3 train.py -m $MODEL -d $DATASET -e $EPOCH -o $OUTPUT
+#+end_src
+
+**** DONE Choose evaluation epoch
+
+You can see here that you don't need to change anything as the variables are already set. You just need to run the ~src~ block.
+
+#+begin_src sh
+  cat $OUTPUT | awk -F' ' '
+      NR==1 {print "epoch, metric_1, metric_2"}
+            {print     $2        $5        $8}
+  '
+#+end_src
+
+#+RESULTS:
+| epoch |             metric_1 |           metric_2 |
+|     0 |   1.5431820776439804 |  5.960442804429601 |
+|     1 | -0.07489080727528663 |  6.032151012480522 |
+|     2 | -0.16030363016801086 |  6.176561294759547 |
+|     3 |  -0.8741808177267164 |  5.068879137451657 |
+|     4 |   0.6237838942129226 | 7.3241069219918815 |
+
+**** DONE Eval
+:PROPERTIES:
+:header-args+: :var EPOCH=2
+:END:
+
+In this ~:PROPERTIES:~ drawer, I can rewrite the value of the ~EPOCH~ variable as it does not have the same meaning.
+
+#+begin_src sh :exports both :eval no-export :results verbatim
+  python3 eval.py -m $MODEL -d $DATASET -e $EPOCH
+#+end_src
+
+#+RESULTS:
+: Epoch 2, metric_1 = 0.6, metric_2 = 6.0
+
+*** TODO Experiment B - ~model_B~
+:PROPERTIES:
+:header-args+: :var MODEL="model_B"
+:header-args+: :var OUTPUT="/tmp/experiment_org/model_B.txt"
+:END:
+
+Here, you just need to copy the code block and change the ~:PROPERTIES:~ drawer and you are good to go !
+
+***** DONE Training
+
+#+begin_src sh :exports both :eval no-export :results verbatim
+  python3 train.py -m $MODEL -d $DATASET -e $EPOCH -o $OUTPUT
+#+end_src
+
+#+RESULTS:
+: Training Done ! (model_B, dataset_A, 5)
+
+***** TODO Choose evaluation epoch
+
+#+begin_src sh :exports both :eval no-export
+  cat /tmp/experiment_org/model_B.txt | awk -F' ' '
+      NR==1 {print "epoch, metric_1, metric_2"}
+            {print     $2        $5        $8}
+  '
+#+end_src
+
+***** TODO Eval
+
+#+begin_src sh :exports both :eval no-export :results raw
+  python3 train.py -m "model_B" -d "dataset_A" -e [TBD]
+#+end_src
+
+** Conclusion
+
+Now that is a pretty nice setup, you just need to copy the experiment ~src~ block, change the ~:PROPERTIES:~ drawer and you are good to go all inside a single file!
+
+One problem is that you need to copy code block. This can lead to copy error and if you want to change one of the code block you need to modify every occurrence. In the next section we will see how to have a single point of truth for our code blocks.
+
+* The Golden Age
+
+The idea is to use another functionality of Org Mode: ~noweb~. This feature allows to have a code block expands in another place.
+It will be more clear with an example
+
+Let's say you have some code defining a complex string:
+
+#+NAME: complex_string
+#+begin_src :noweb yes
+  This message is used whenever there is something to print. This message is very long and repetitive. For more readability it is in its own code block
+#+end_src
+
+Then in another code we can use this code block by using the following syntax:
+
+#+begin_src sh :noweb yes
+  if true
+  then
+      echo <<complex_string>>
+  else
+      echo <<complex_string>>
+  fi
+#+end_src
+
+#+RESULTS:
+: This message is used whenever there is something to print. This message is very long and repetitive. For more readability it is in its own code block
+
+If you expand the code block you will see that the ~<<complex_string>>~ is replace by the content of ~complex_string~.
+We will use that to have a single point of truth and expand the code block to get the command to run.
+
+** Experiments
+:PROPERTIES:
+:header-args:sh+: :export both :eval no-export
+:header-args+: :noweb yes
+:header-args+: :var DATASET="dataset_A"
+:header-args+: :var EPOCH=5
+:END:
+
+We add a new heading: ~Template~ which will be were we define our command that will be change after. We then call the templates inside our experiments.
+See how we also added the ~:noweb~ in the ~PROPERTIES~ drawer.
+
+NB: we need to put the ~_Gold~ suffix as will have multiple template in this tutorial and to resolve the name for the ~noweb~, Org mode looks at the first occurrence of the name in the document. So if you have two blocks with the same name, only the first one will be seen.
+
+*** Template
+
+#+NAME: Training_Gold
+#+begin_src sh
+  python3 train.py -m $MODEL -d $DATASET -e $EPOCH -o $OUTPUT
+#+end_src
+
+#+NAME: Epoch_Gold
+#+begin_src sh
+  cat $OUTPUT | awk -F' ' '
+      NR==1 {print "epoch, metric_1, metric_2"}
+            {print     $2        $5        $8}
+  '
+#+end_src
+
+#+NAME: Eval_Gold
+#+begin_src sh
+  python3 eval.py -m $MODEL -d $DATASET -e $EPOCH
+#+end_src
+
+*** DONE Experiment A - ~model_A~
+:PROPERTIES:
+:header-args+: :var MODEL="model_A"
+:header-args+: :var OUTPUT="/tmp/experiment_org/model_A.txt"
+:END:
+
+**** DONE Training
+
+#+begin_src sh :results verbatim
+  <<Training_Gold>>
+#+end_src
+
+#+RESULTS:
+: Training Done ! (model_A, dataset_A, 5)
+
+If you use ~[M-x org-babel-expand-src-block]~ on the previous ~src~ block, you will see exactly like before:
+
+#+begin_src sh
+  DATASET='dataset_A'
+  EPOCH='5'
+  MODEL='model_A'
+  OUTPUT='/tmp/experiment_org/model_A.txt'
+  python3 train.py -m $MODEL -d $DATASET -e $EPOCH -o $OUTPUT
+#+end_src
+
+**** DONE Choose evaluation epoch
+
+#+begin_src sh
+  <<Epoch_Gold>>
+#+end_src
+
+#+RESULTS:
+| epoch |            metric_1 |           metric_2 |
+|     0 | -0.8083130579107521 |  5.390750406028559 |
+|     1 | 0.39034054273778007 |  5.438207716663534 |
+|     2 |  0.5503080624589775 |  5.731402866989175 |
+|     3 |  0.5027926126744592 |  6.981319877304114 |
+|     4 |   2.345117765023441 | 5.5458417822293615 |
+
+**** DONE Eval
+:PROPERTIES:
+:header-args+: :var EPOCH=2
+:END:
+
+#+begin_src sh :exports both :eval no-export :results verbatim
+  <<Eval_Gold>>
+#+end_src
+
+#+RESULTS:
+: Epoch 2, metric_1 = 0.6, metric_2 = 6.0
+
+*** TODO Experiment B - ~model_B~
+:PROPERTIES:
+:header-args+: :var MODEL="model_B"
+:header-args+: :var OUTPUT="/tmp/experiment_org/model_B.txt"
+:END:
+
+Here, you just need to copy the code block and change the ~:PROPERTIES:~ drawer and you are good to go !
+
+***** DONE Training
+
+#+begin_src sh :exports both :eval no-export :results verbatim
+  <<Training_Gold>>
+#+end_src
+
+#+RESULTS:
+: Training Done ! (model_B, dataset_A, 5)
+
+***** TODO Choose evaluation epoch
+
+#+begin_src sh :exports both :eval no-export
+  <<Epoch_Gold>>
+#+end_src
+
+***** TODO Eval
+
+#+begin_src sh :exports both :eval no-export :results raw
+  <<Eval_Gold>>
+#+end_src
+
+*** Conclusion
+
+It is now very simple to:
+- follow which experiment you need to run and what is running
+- create new experiment without making mistake on variables
+- change the commands for your experiment without rewriting everything
+
+The main problem is the shearability. The only way to see your command is to expand the code block.
+
+* The Diamond Age
+:PROPERTIES:
+:MODEL:  model_A
+:DATASET:   dataset_A
+:EPOCH:   10
+:OUTPUT:  /tmp/output.txt
+:END:
+
+This might go a bit too far but the goal is having the command generated from a template and having the variable in plain text so one could copy directly from the text file without having to run it.
+
+To do so, the strategy is to search and replace in the template the parameters and print the output.
+The pseudo code would be:
+#+begin_src
+  - Go to named block
+  - For each parameters defined in property:
+    - replace each occurence of the parameter name by its value
+  - Print the result
+#+end_src
+
+Unfortunatly there is no one function that do that so we need to implement our own version. To do so we use Emacs own language: ~emacs-lisp~ with Org babel and then use  another trick that is to use ~#+call: NAME(var=VAR)~ syntax that runs the code block named NAME at the position of the ~#+call:~.
+
+Let's first define the function: 
+
+#+NAME: expand
+#+BEGIN_SRC emacs-lisp :exports results :results raw :eval no-export
+  ;; Get all line but the first and the last.
+  ;; Its needed as auto-selecting a code block will also select one line before and one line after it.
+  (defun remove-last-line (s)
+    ;; Define the variable middle-lines that split a string and remove the first and last line.
+    (let ((middle-lines (cdr (butlast (split-string s "\n")))))
+      ;; Concat the multi line string by adding the newline char.
+      (string-join middle-lines "\n")))
+
+  ;; Get all couple (properties . values) at point.
+  (defun org-entry-all-properties ()
+    (let ((properties (mapcar (lambda (key)
+                                (let ((value (org-entry-get-with-inheritance key)))
+                                  (if value (cons key value))))
+                              (org-buffer-property-keys))))
+      (remove nil properties)))		; remove nil values inside all properties 
+
+  ;; Main script
+  (save-excursion
+    ;; - First get a list of (NAME . VALUE) for each properties
+    ;; - Create a long regexp of all NAME
+    ;; - Set the initial position 
+    (let* ((vars (mapcar (lambda (x) (cons (concat "$" (car x)) (cdr x))) (org-entry-all-properties)))
+           (re (regexp-opt (mapcar #'car vars) 'string))
+           (pos 0))
+      (org-babel-goto-named-src-block name) ; Go to the named block (the name variable will be define with the #+call: expand(name=...)
+      (org-mark-element)			  ; Select the whole name block
+      (let ((command (buffer-substring-no-properties (region-beginning) (region-end)))) ; Extract the string from the block
+        (while (string-match re command pos) ; Use the regex and for each find of NAME replace it with VALUE
+          (setq command (replace-match
+                         (format "%s" (cdr (assoc-string (match-string 0 command) vars)))
+                         t nil
+                         command)))
+        (remove-last-line command)))) 	; Small formating
+#+END_SRC
+
+I'm sure it could be better coded (I'm not a gray beard) but now we can test that!
+If you look at the PROPERTIES, we also use the opportunity to change syntax. We go from:
+
+#+begin_src
+  :header-args+: :var MODEL="model_A"
+  :header-args+: :var DATASET="dataset_A"
+  :header-args+: :var EPOCH=10
+  :header-args+: :var OUTPUT="/tmp/output.txt"
+#+end_src
+
+To:
+
+#+begin_src
+  :MODEL:  model_A
+  :DATASET:   dataset_A
+  :EPOCH:   10
+  :OUTPUT:  /tmp/output.txt
+#+end_src
+
+This is small but I found it more lisible.
+Let's test it:
+
+#+call: expand(name="Training_Gold")
+
+#+RESULTS:
+#+begin_src sh
+  python3 train.py -m model_A -d dataset_A -e 10 -o /tmp/output.txt
+#+end_src
+
+Now the last ~Experiments~:
+
+** Experiments
+:PROPERTIES:
+:header-args:sh+: :exports both :eval no-export
+:DATASET:  dataset_A
+:EPOCH:    5
+:END:
+
+*** Template
+
+#+NAME: Training_Diamond
+#+begin_src sh :results verbatim
+  python3 train.py -m $MODEL -d $DATASET -e $EPOCH -o $OUTPUT
+#+end_src
+
+#+NAME: Epoch_Diamond
+#+begin_src sh
+  cat $OUTPUT | awk -F' ' '
+      NR==1 {print "epoch, metric_1, metric_2"}
+            {print     $2        $5        $8}
+  '
+#+end_src
+
+#+NAME: Eval_Diamond
+#+begin_src sh :results verbatim
+  python3 eval.py -m $MODEL -d $DATASET -e $EPOCH
+#+end_src
+
+*** DONE Experiment A - ~model_A~
+:PROPERTIES:
+:MODEL:    model_A
+:OUTPUT:   /tmp/experiment_org/model_A.txt
+:END:
+
+**** DONE Training
+
+#+CALL: expand(name="Training_Diamond")
+
+#+RESULTS:
+#+begin_src sh :results verbatim
+  python3 train.py -m model_A -d dataset_A -e 5 -o /tmp/experiment_org/model_A.txt
+#+end_src
+
+#+RESULTS:
+: Training Done ! (model_A, dataset_A, 5)
+
+**** DONE Choose evaluation epoch
+
+#+CALL: expand(name="Epoch_Diamond")
+
+#+RESULTS:
+#+begin_src sh
+  cat /tmp/experiment_org/model_B.txt | awk -F' ' '
+      NR==1 {print "epoch, metric_1, metric_2"}
+            {print     $2        $5        $8}
+  '
+#+end_src
+
+**** DONE Eval
+:PROPERTIES:
+:EPOCH:  2
+:END:
+
+#+CALL: expand(name="Eval_Diamond")
+
+#+RESULTS:
+#+begin_src sh :results verbatim
+  python3 eval.py -m model_A -d dataset_A -e 2
+#+end_src
+
+#+RESULTS:
+: Epoch 2, metric_1 = 0.6, metric_2 = 6.0
+
+*** TODO Experiment B - ~model_B~
+:PROPERTIES:
+:MODEL:    model_B
+:OUTPUT:   /tmp/experiment_org/model_B.txt
+:END:
+
+***** DONE Training
+
+#+CALL: expand(name="Training_Diamond")
+
+#+RESULTS:
+#+begin_src sh :results verbatim
+  python3 train.py -m model_B -d dataset_A -e 5 -o /tmp/experiment_org/model_B.txt
+#+end_src
+
+#+RESULTS:
+: Training Done ! (model_B, dataset_A, 5)
+
+***** TODO Choose evaluation epoch
+
+#+CALL: expand(name="Epoch_Diamond")
+
+#+RESULTS:
+#+begin_src sh
+  cat /tmp/experiment_org/model_B.txt | awk -F' ' '
+      NR==1 {print "epoch, metric_1, metric_2"}
+            {print     $2        $5        $8}
+  '
+#+end_src
+
+***** TODO Eval
+
+#+CALL: expand(name="Eval_Gold")
+
+#+RESULTS:
+#+begin_src sh
+  python3 eval.py -m model_B -d dataset_A -e 5
+#+end_src
+
+* Setup
+
+This section is if you want to be able to run the code blocks alongside reading it.
+
+By default, Org Babel does not run code blocks, you need to put the following somewhere in your Emacs config (most probably in a ~~/.emacs.d/init.el~). Notice how this is in a code block.
+
+#+begin_src emacs-lisp :eval never
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+      '((emacs-lisp . t)
+        (sh . t)))
+#+end_src
+
+(The ~:eval never~ means that when you execute the code ~[C-c C-c]~ it will not run)
+
+The following scripts are there to create a mock training and evaluation. You can create either by copy and pasting into a file or by using another magical feature of Org mode: ~tangle~. By using ~[M-x org-babel-tangle]~, Org mode will create the file at the path defined by the ~:tangle~ option. Here: ~/tmp/~.
+
+WARNING: If you change this path, you need to change the ~#+PROPERTY: header-args:sh :dir ...~ line at the very top of the file.
+
+** Training script
+
+The training script is a toy script that just spits out random number for as long as there are epochs left. The mean and variance of the random number is given by the model type and the dataset.
+
+#+begin_src python :tangle /tmp/experiment_org/train.py :mkdirp yes
+  from argparse import ArgumentParser
+  import random
+
+  model_map = {
+      "model_A": 0.5,
+      "model_B": 0.2
+  }
+  dataset_map = {
+      "dataset_A": 0.1,
+      "dataset_B": -0.2,
+      "dataset_C": -0.1
+  }
+
+  if __name__ == "__main__":
+       parser = ArgumentParser(description="Dummy Training")
+
+       parser.add_argument("--model", "-m", type=str, help="the model type")
+       parser.add_argument("--dataset", "-d", type=str, help="the dataset")
+       parser.add_argument("--epoch", "-e", type=int, help="number of epochs")
+       parser.add_argument("--output", "-o", type=str, help="output path")
+
+       user_inputs = parser.parse_args()
+
+       with open(user_inputs.output, 'w') as f:
+            for epoch in range(user_inputs.epoch):
+                 mean = model_map[user_inputs.model] + dataset_map[user_inputs.dataset]
+                 metric_1 = random.gauss(mean, 1)
+                 metric_2 = random.gauss(mean * 10, 1)
+                 print(f"Epoch {epoch:2>0}, metric_1 = {metric_1}, metric_2 = {metric_2}", file=f)
+
+       print(f"Training Done ! ({user_inputs.model}, {user_inputs.dataset}, {user_inputs.epoch})")
+#+end_src
+
+** Evaluation script
+
+The evaluation script is a toy script that spits out a random number based on metrics and dataset.
+
+#+begin_src python :tangle /tmp/experiment_org/eval.py
+  from argparse import ArgumentParser
+
+  model_map = {
+      "model_A": 0.5,
+      "model_B": 0.2
+  }
+  dataset_map = {
+      "dataset_A": 0.1,
+      "dataset_B": -0.2,
+      "dataset_C": -0.1
+  }
+
+  if __name__ == "__main__":
+       parser = ArgumentParser(description="Dummy Training")
+
+       parser.add_argument("--model", "-m", type=str, help="the model type")
+       parser.add_argument("--dataset", "-d", type=str, help="the dataset")
+       parser.add_argument("--epoch", "-e", type=int, help="number of epochs")
+
+       user_inputs = parser.parse_args()
+
+       mean = model_map[user_inputs.model] + dataset_map[user_inputs.dataset]
+       print(f"Epoch {user_inputs.epoch}, metric_1 = {mean}, metric_2 = {mean * 10}")
+#+end_src
