@@ -1,0 +1,6 @@
+# Ignore everything in the configuration dir
+emacs.d/*
+
+# Except the configuration files
+!emacs.d/*.org
+!emacs.d/init.el
