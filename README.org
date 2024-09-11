@@ -21,17 +21,18 @@ I also use Nerd Font in the configuration so the extentions should be installed:
 ** On Ubuntu
 
 #+begin_src sh
-  # Iosevka
-  sudo apt-get install fonts-iosevka
-
-  # Jetbrains-mono (not sure if needed)
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/JetBrains/JetBrainsMono/master/install_manual.sh)"
-
-  # Jetbrains Nerd font
   mkdir -p ~/.local/share/fonts
   cd ~/.local/share/fonts
-  curl -OL https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.tar.xz  
-  tar -xf JetBrainsMono.tar.xz
+
+  # Iosevka
+  curl -OL https://github.com/be5invis/Iosevka/releases/download/v31.6.1/PkgTTC-IosevkaAile-31.6.1.zip && unzip PkgTTC-IosevkaAile-31.6.1.zip
+  # Jetbrains-mono (not sure if needed)
+  curl -OL https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip && unzip JetBrainsMono.zip
+  # Jetbrains Nerd font
+  curl -OL https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.tar.xz && tar -xf JetBrainsMono.tar.xz
+
+  # remove unecessary files
+  rm *.zip *.tar.xz
 #+end_src
 
 * Install emacs
